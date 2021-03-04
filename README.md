@@ -47,3 +47,5 @@ To create the map use an editor such as JOSM. This will be used to create a data
 ## Update
 
 New updates and new features soon.. 🚀
+
+Create by Vittorio Russo and supervisor Antonio della Selva (Università degli studi di Urbino Carlo Bo)
