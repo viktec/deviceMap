@@ -1,172 +1,233 @@
 <!DOCTYPE html>
 <html>
 <head>
-    
-</head>
-<body>	
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-<script src="plugins/Map/leaflet-src.js"></script>
-<script src="plugins/Map/leaflet-indoor.js"></script>
-<script src="plugins/Map/Map.php"></script>
-<style>
-#map {position: absolute; top: 0; bottom: 0; left: 0; right: 0;}
-.info {
-            width: 150px;
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+        .info {
+            width: 250px;
             padding: 6px 8px;
-            font: 18px/20px Arial, Helvetica, sans-serif;
-            background: white;
-            background: rgba(255,255,255,1);
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            font: 14px/18px Arial, Helvetica, sans-serif;
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
             border-radius: 5px;
         }
-</style>	
- <div style="width: auto">
- <div style="padding: 300px">	
-	<div id = "map">
-    <script type="text/JavaScript">
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .legend-item img {
+            margin-right: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $.fn.bootstrapSwitch = $.fn.bootstrapSwitch || function () {};
+        $.fn.button = $.fn.button || function () {};
+    </script>
+    <script src="plugins/Map/leaflet-src.js"></script>
+    <script src="plugins/Map/leaflet-indoor.js"></script>
+    <script>
+        const deviceInfo = purpose;
+        const splitted_loc = deviceInfo.split(",");
+        const lat = splitted_loc[1];
+        const lng = splitted_loc[2];
+        const deviceType = splitted_loc[3];
+        const deviceLevel = splitted_loc[4];
 
+        function getIconSizeForZoom(zoom) {
+            const baseZoom = 19;
+            const baseSize = 20;
+            const scale = zoom / baseZoom;
+            return Math.max(12, Math.min(40, Math.round(baseSize * scale)));
+        }
 
-		//Creazione della mappa
+        const portMarkers = [];
+        let deviceMarker = null;
 
-        var osmUrl = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-            osm = new L.TileLayer(osmUrl, {
-                maxZoom: 22,
-                attribution: "Map data &copy; OpenStreetMap contributors"
+        const osmUrl = '//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const osm = new L.TileLayer(osmUrl, {
+            maxZoom: 22,
+            attribution: "Map data &copy; OpenStreetMap contributors"
+        });
+
+        const map = new L.Map('map', {
+            layers: [osm],
+            center: new L.LatLng(43.7232, 12.6368),
+            zoom: 19
+        });
+
+        map.on('zoomend', () => {
+            const newSize = getIconSizeForZoom(map.getZoom());
+
+            portMarkers.forEach(({ marker, iconUrl }) => {
+                const newIcon = L.icon({
+                    iconUrl,
+                    iconSize: [newSize, newSize],
+                    iconAnchor: [newSize / 2, newSize / 2]
+                });
+                marker.setIcon(newIcon);
             });
 
-        var map = new L.Map('map', {
-            layers: [osm],
-            center: new L.LatLng(43.7232,12.6368),
-            zoom: 19
-        }); 
+            if (deviceMarker) {
+                const newIcon = L.icon({
+                    iconUrl: deviceMarker.iconUrl,
+                    iconSize: [newSize, newSize],
+                    iconAnchor: [newSize / 2, newSize / 2]
+                });
+                deviceMarker.marker.setIcon(newIcon);
+            }
+        });
 
-		// Configurazione e riconoscimento del file geoJson
-
-        $.getJSON("plugins/Map/data.json", function(geoJSON) {
-			var indoorLayer = new L.Indoor(geoJSON, {
-				getLevel: function(feature) { 
-					if (feature.properties.relations.length  === 0)
-						return null;
-
+        $.getJSON("plugins/Map/data.json", function (geoJSON) {
+            const indoorLayer = new L.Indoor(geoJSON, {
+                getLevel: function (feature) {
+                    if (feature.properties.relations.length === 0) return null;
                     return feature.properties.relations[0].reltags.level;
                 },
-               	
-				onEachFeature: function(feature, layer) {
-					layer.bindPopup(JSON.stringify(feature.properties, null, 4));
+                onEachFeature: function (feature, layer) {
+                    layer.bindPopup(JSON.stringify(feature.properties, null, 4));
                 },
-
-                style: function(feature) {
-					var fill = 'white';
-							
-					if (feature.properties.tags.buildingpart === 'room') {
-						fill = '#169EC6';
-					} else if (feature.properties.tags.buildingpart === 'verticalpassage') {
-						fill = '#89eb35';
-					} else if (feature.properties.tags.buildingpart === 'wall') {
-						fill = '#808080';
-					} else if (feature.properties.tags.buildingpart === 'toilets') {
-						fill = '#ffff00';
-					} else if (feature.properties.tags.buildingpart === 'corridor') {
-						fill = 'white';
-					}
-
+                style: function (feature) {
+                    const tag = feature.properties.tags.buildingpart;
+                    const colors = {
+                        room: '#169EC6',
+                        verticalpassage: '#89eb35',
+                        wall: '#808080',
+                        toilets: '#ffff00',
+                        corridor: 'white'
+                    };
                     return {
-                        fillColor: fill,
+                        fillColor: colors[tag] || 'white',
                         weight: 1,
                         color: '#666',
                         fillOpacity: 1
                     };
                 }
-            });   
+            });
 
             indoorLayer.setLevel("0");
             indoorLayer.addTo(map);
-	   
 
-            var levelControl = new L.Control.Level({
+            const levelControl = new L.Control.Level({
                 level: "0",
                 levels: indoorLayer.getLevels()
-			});
+            });
 
-			var location = <?php echo json_encode($device["purpose"]); ?>;
-			var splitted_loc = location.split(",");
-			var lat = splitted_loc[1];
-			var lng = splitted_loc[2];
-			var deviceType = splitted_loc[3];
-			var deviceLevel = splitted_loc[4];
-			var devstatus	= <?php echo json_encode($device["status"]); ?>;
+            let iconUrl = "";
+            if (deviceType === "switch") {
+                iconUrl = devstatus ? "switch-on.ico" : "switch-off.ico";
+            } else if (deviceType === "router") {
+                iconUrl = devstatus ? "router-green.ico" : "router-red.ico";
+            }
 
-			var icon
-			if (devstatus == true && deviceType == "switch") {
-				icon = L.icon({
-					iconUrl: "plugins/Map/icone/switch-on.ico",
-					iconSize:     [32, 32], 	// dimensione dell'icona
-					iconAnchor:   [lat,lng], 	// punto dell'icona che corrisponderà alla posizione del marker
-					popupAnchor:  [-3, -76] 	// punto da cui dovrebbe aprirsi il popup relativo a iconaAnchor
-				});
-				
-			} else if (devstatus == false && deviceType == "switch") {
-				icon = L.icon({
-					iconUrl: "plugins/Map/icone/switch-off.ico",
-					iconSize:     [32, 32], 	// dimensione dell'icona
-					iconAnchor:   [lat,lng], 	// punto dell'icona che corrisponderà alla posizione del marker
-					popupAnchor:  [-3, -76] 	// punto da cui dovrebbe aprirsi il popup relativo a iconaAnchor
-				});
-			
-			}  else if (devstatus == true && deviceType == "router") {
-				icon = L.icon({
-					iconUrl: "plugins/Map/icone/router-green.ico",
-					iconSize:     [32, 32], 	// dimensione dell'icona
-					iconAnchor:   [lat,lng], 	// punto dell'icona che corrisponderà alla posizione del marker
-					popupAnchor:  [-3, -76] 	// punto da cui dovrebbe aprirsi il popup relativo a iconaAnchor
+            const icon = L.icon({
+                iconUrl: `plugins/Map/icone/${iconUrl}`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -16]
+            });
 
-				});
+            const marker = L.marker([lat, lng], { icon }).addTo(map);
+            deviceMarker = { marker, iconUrl: `plugins/Map/icone/${iconUrl}` };
 
-			} else if (devstatus == false && deviceType == "router") {
-				icon = L.icon({
-					iconUrl: "plugins/Map/icone/router-red.ico",
-					iconSize:     [32, 32], 	// dimensione dell'icona
-					iconAnchor:   [lat,lng], 	// punto dell'icona che corrisponderà alla posizione del marker
-					popupAnchor:  [-3, -76] 	// punto da cui dovrebbe aprirsi il popup relativo a iconaAnchor
-				});
-			} 
-				
-			myMarker = L.marker([lat,lng],{ icon: icon });				
-
-            		// Collega il controllo di livello allo strato interno
-			levelControl.addEventListener("levelchange", indoorLayer.setLevel, indoorLayer);
-			levelControl.addEventListener("levelchange", function(e) {
-				if(e.newLevel == deviceLevel) {
-					map.addLayer(myMarker)
-				} else {
-					map.removeLayer(myMarker)
-				}
-			}, indoorLayer);
+            levelControl.addEventListener("levelchange", indoorLayer.setLevel, indoorLayer);
+            levelControl.addEventListener("levelchange", function (e) {
+                if (e.newLevel == deviceLevel) {
+                    map.addLayer(marker);
+                } else {
+                    map.removeLayer(marker);
+                }
+            }, indoorLayer);
             levelControl.addTo(map);
+
+            loadPortsForDevice(hostname, lat, lng);
         });
 
-        var legend = L.control({position: 'bottomleft'});
+        async function loadPortsForDevice(hostname, lat, lng) {
+            const url = `/api/v0/devices/${hostname}/ports`;
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Token ${apiToken}`
+                    }
+                });
 
-        legend.onAdd = function(map) {
-            var d = 	"Leggenda colori: "+
-		    	" stanza = blu "+
-			" scala = verde "+
-			" toilets = giallo "+
-			" muro = grigio"+
-			" corridoio = bianco "+
-			" switch on = verde  "+
-			" switch off = rosso"
+                if (!response.ok) {
+                    console.warn(`Impossibile ottenere le porte per ${hostname}`);
+                    return;
+                }
 
-            var div = L.DomUtil.create('div', 'info legend');
-            div.appendChild(document.createTextNode(d));
+                const data = await response.json();
+                const ports = data.ports || [];
+
+                ports.forEach((port, i) => {
+                    if (port.ifAdminStatus === 'up') {
+                        const isDown = port.ifOperStatus !== 'up';
+                        const offset = 0.00005 * (i + 1);
+                        const portLat = parseFloat(lat) + offset;
+                        const portLng = parseFloat(lng) + offset;
+                        const iconSize = getIconSizeForZoom(map.getZoom());
+
+                        const marker = L.marker([portLat, portLng], {
+                            icon: L.icon({
+                                iconUrl: isDown
+                                    ? "plugins/Map/icone/port-down.ico"
+                                    : "plugins/Map/icone/port-up.ico",
+                                iconSize: [iconSize, iconSize],
+                                iconAnchor: [iconSize / 2, iconSize / 2]
+                            })
+                        }).addTo(map);
+
+                        marker.bindPopup(`
+                            <b>${hostname} - ${port.ifName}</b><br>
+                            Descrizione: ${port.ifDescr}<br>
+                            Stato: ${port.ifOperStatus}<br>
+                            Velocità: ${Math.round((port.ifSpeed || 0) / 1_000_000)} Mbps
+                        `);
+
+                        portMarkers.push({ marker, iconUrl: marker.options.icon.options.iconUrl });
+                    }
+                });
+
+            } catch (err) {
+                console.error(`Errore nella chiamata API per ${hostname}`, err);
+            }
+        }
+
+        const legend = L.control({ position: 'topright' });
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = `
+                <b>Leggenda colori:</b><br>
+                <div class="legend-item"><img src="plugins/Map/icone/switch-on.ico" width="16"> Switch ON</div>
+                <div class="legend-item"><img src="plugins/Map/icone/switch-off.ico" width="16"> Switch OFF</div>
+                <div class="legend-item"><img src="plugins/Map/icone/router-green.ico" width="16"> Router ON</div>
+                <div class="legend-item"><img src="plugins/Map/icone/router-red.ico" width="16"> Router OFF</div>
+                <div class="legend-item"><img src="plugins/Map/icone/port-up.ico" width="16"> Porta UP</div>
+                <div class="legend-item"><img src="plugins/Map/icone/port-down.ico" width="16"> Porta DOWN</div>
+                <hr>
+                <div class="legend-item"><span style="color:#169EC6;">■</span> Stanza = blu</div>
+                <div class="legend-item"><span style="color:#89eb35;">■</span> Scala = verde</div>
+                <div class="legend-item"><span style="color:#ffff00;">■</span> Toilets = giallo</div>
+                <div class="legend-item"><span style="color:#808080;">■</span> Muro = grigio</div>
+                <div class="legend-item"><span style="color:#000;">■</span> Corridoio = bianco</div>
+            `;
             return div;
         };
-
         legend.addTo(map);
-	
     </script>
-</div>
-</div>
-</div>
 </body>
 </html>

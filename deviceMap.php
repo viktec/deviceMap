@@ -25,7 +25,7 @@
 
 namespace LibreNMS\Plugins;
 
-class deviceMap
+class Map
 {
     public function menu()
     {
@@ -39,7 +39,20 @@ class deviceMap
         echo '<div class="container-fluid"><div class="row"> <div class="col-md-12"> <div class="panel panel-default panel-condensed"> <div class="panel-heading"><strong>' . get_class() . ' Plugin </strong> </div>';
 	
         echo '  Plugin Mappatura <br>';
-	include 'Map.inc.html';
+
+        $config = include __DIR__ . '/config.php';
+        $token = $config['api_token'];
+        
+        echo "<script>const apiToken = '$token';</script>";
+
+        echo "<script>
+        const hostname = " . json_encode($device['hostname']) . ";
+        const devstatus = " . json_encode($device['status']) . ";
+        const purpose = " . json_encode($device['purpose']) . ";
+        </script>";
+        
+        include 'Map.inc.html';
+
         echo '</div></div></div></div>';
     }
 
